@@ -71,6 +71,7 @@ async def receive_payload(
             return {"message": "Ignoring push event on default branch"}
     elif x_github_event == "ping":
         return {"message": "pong"}
+        # comment
     else:
         return {"message": "Unable to process action"}
 
