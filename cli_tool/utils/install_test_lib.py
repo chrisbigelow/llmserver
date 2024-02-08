@@ -83,31 +83,3 @@ def bazel_run_tests(test_target_name):
     except subprocess.CalledProcessError as e:
         print("Failed to run tests.")
         print(e)
-
-
-def install_gtest():
-    try:
-        # Check if the googletest directory already exists
-        if os.path.isdir('googletest'):
-            # Remove the existing directory
-            shutil.rmtree('googletest')
-        # Clone Google Test repository
-        subprocess.run(
-            ['git', 'clone', 'https://github.com/google/googletest.git'], check=True)
-        os.chdir('googletest')
-        # Create build directory using os.makedirs to avoid subprocess call for mkdir
-        os.makedirs('build', exist_ok=True)
-        os.chdir('build')
-        # Check if CMake is installed
-        if shutil.which('cmake') is None:
-            raise FileNotFoundError(
-                "CMake is not installed or not found in PATH.")
-        # Run CMake and build
-        subprocess.run(['cmake', '..', '-DBUILD_GMOCK=OFF'], check=True)
-        subprocess.run(['make'], check=True)
-        # Install
-        subprocess.run(['sudo', 'make', 'install'], check=True)
-        os.chdir('../../')
-        print("Google Test installed successfully.")
-    except subprocess.CalledProcessError as e:
-        print(f"Failed to install Google Test: {e}")
