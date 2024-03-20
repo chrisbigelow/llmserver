@@ -1,4 +1,5 @@
 
+    // weather_advisor_test.cpp
     #include "gtest/gtest.h"
     #include "weather_advisor.h"
 
@@ -18,12 +19,12 @@
     }
 
     TEST(WeatherAdvisorTest, ExtremeTemperature) {
-        WeatherAdvisor advisor(40, 50, 1010);
+        WeatherAdvisor advisor(-20, 50, 1015);
         EXPECT_EQ(advisor.shouldGoOutside(), "It's not recommended to go outside due to bad weather conditions.");
     }
 
     TEST(WeatherAdvisorTest, ExtremeHumidity) {
-        WeatherAdvisor advisor(20, 95, 1010);
+        WeatherAdvisor advisor(20, 95, 1015);
         EXPECT_EQ(advisor.shouldGoOutside(), "It's not recommended to go outside due to bad weather conditions.");
     }
 

@@ -1,11 +1,12 @@
 import typer
+from rich.progress import Progress, SpinnerColumn, TextColumn
 from langchain_openai import ChatOpenAI
+import subprocess
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_together import Together
 from langchain_core.runnables import RunnableLambda, RunnablePassthrough
-from .install_test_lib import install_gtest
-from .install_test_lib import bazel_run_tests
+from .bazel_setup import bazel_run_tests, create_workspace_directory, create_workspace_file, setup_workspace, create_build_file
 import os
 
 
@@ -26,7 +27,7 @@ def llm_translate(content):
     return response
 
 
-def llm_testgen(test_filepath):
+def llm_testgen(source_directory):
     model = Together(
         model="mistralai/Mixtral-8x7B-Instruct-v0.1",
         temperature=0.7,
@@ -42,42 +43,55 @@ def llm_testgen(test_filepath):
     """
     prompt = ChatPromptTemplate.from_template(prompt_template)
     chain = prompt | model | StrOutputParser()
-    test_filename = test_filepath.replace('.cc', '_generated.cc')
-    if not os.path.exists(test_filename):
-        try:
-            with open(test_filepath, 'r', encoding='utf-8') as file:
-                code = file.read()
-                output = chain.invoke({"code": code})
-                print("Generated test code:", code)
-                with open(test_filename, 'w', encoding='utf-8') as test_file:
-                    test_file.write(output)
-        except FileNotFoundError:
-            print("The source code file does not exist.")
-        except Exception as e:
-            print(f"An error occurred: {e}")
-    else:
-        print(f"Test file {test_filename} already exists. Skipping generation.")
-    
-    # Compile and run the generated test code
-    print("Compiling and running test...")
-    # compile_command = f'g++ -std=c++14 -o test_output {test_filename} -lgtest -lpthread && ./test_output'
-    
+
+    for filename in os.listdir(source_directory):
+        if filename.endswith('.cc') and not filename.endswith('_test_generated.cc'):
+            source_filepath = os.path.join(source_directory, filename)
+            test_filename = source_filepath.replace(
+                '.cc', '_test_generated.cc')
+            # if the _test_generated.cc test file does not exist, generate it
+            if not os.path.exists(test_filename):
+                try:
+                    with open(source_filepath, 'r', encoding='utf-8') as file:
+                        code = file.read()
+                        with Progress(
+                            SpinnerColumn(),
+                            TextColumn("[progress.description]{task.description}"),
+                            transient=True,
+                        ) as progress:
+                            progress.add_task(description="Using AI to generate code...", total=None)
+                            output = chain.invoke({"code": code})
+                        print(f"Generated test code for {filename}")
+                        with open(test_filename, 'w', encoding='utf-8') as test_file:
+                            test_file.write(output)
+                except FileNotFoundError:
+                    print(f"The source code file {filename} does not exist.")
+                except Exception as e:
+                    print(
+                        f"An error occurred while processing {filename}: {e}")
+            # if the _test_generated.cc test file exists, skip generation
+            else:
+                print(
+                    f"Test file {test_filename} already exists. Skipping generation.")
+
+    # Compile and run all generated test code using Bazel
+    workspace_dir = create_workspace_directory()
+    create_workspace_file(workspace_dir)
+    setup_workspace(workspace_dir)
+    create_build_file(workspace_dir)
+    print("Compiling and running all tests with Bazel...")
     try:
-        # Attempt to compile and run the generated test code
-        # compile_status = os.system(compile_command)
-        compile_status = bazel_run_tests(test_filename.replace('.cc', ''))
-        if compile_status != 0:
-            # print("Compilation failed, attempting to install Google Test...")
-            # install_gtest()
-            # print("Re-attempting compilation...")
-            # compile_status = os.system(compile_command)
-            print("Compilation failed, see error.")
-        if compile_status == 0:
-            print(f"Test code compiled and ran successfully.")
+        results = bazel_run_tests(workspace_dir)
+        status = results.returncode
+        print (f"Status: {status}")
+        if status == 1:
+            print("Build failed, see error.")
+        if status == 3:
+            print("Test code compiled successfully, but tests failed, see output.")
+        if status == 0:
+            print(f"Test code compiled successfully, all tests passed.")
         else:
-            print("Compilation or execution failed. Please check the generated test code.")
+            print(
+                "Compilation or execution failed. Please check the generated test code.")
     except Exception as e:
         print(f"An error occurred: {e}")
-
-
-

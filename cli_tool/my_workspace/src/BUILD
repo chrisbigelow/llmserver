@@ -5,10 +5,11 @@ cc_library(
     hdrs = ["weather_advisor.h"],
 )
 
+
 cc_test(
-    name = "weather_advisor_generated",
+    name = "weather_advisor_test",
     size = "small",
-    srcs = ["weather_advisor_generated.cc"],
+    srcs = ["weather_advisor_test_generated.cc"],
     deps = [
         ":weather_advisor",
         "@com_google_googletest//:gtest_main",
